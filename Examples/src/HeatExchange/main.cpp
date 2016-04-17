@@ -4,7 +4,7 @@
 #include <tuple>
 #include "readParameters.hpp"
 #include "GetPot.hpp"
-#include "norm.hpp"
+#include "Thomas.hpp"
 //#include "gnuplot-iostream.hpp"// interface with gnuplot
 /*!
   @file main.cpp
@@ -75,48 +75,13 @@ int main(int argc, char** argv)
   // Solution vector
   std::vector<double> theta(M+1);
   
-  // Gauss Siedel is initialised with a linear variation
-  // of T
-  
-  for(unsigned int m=0;m <= M;++m){
-     theta[m]=(1.-m*h)*(To-Te)/Te;
-  }
-  
-  // Gauss-Seidel
-  // epsilon=||x^{k+1}-x^{k}||
-  // Stopping criteria epsilon<=toler
-  
-  int iter=0;
-  double xnew, epsilon, thetaold;
-  
-     do
-       { epsilon=0.;
-       	 thetaold=theta[0];
-	 // first M-1 row of linear system
-         for(int m=1;m < M;m++)
-         {   
-	   xnew  = (theta[m-1]+theta[m+1])/(2.+h*h*act);
-	   epsilon += norm (Norm, xnew, theta[m],h,theta[m-1],thetaold);
-	   thetaold = theta[m];
-	   theta[m] = xnew;
-         }
-
-	 //Last row
-	 xnew = theta[M-1]; 
-	 epsilon += norm (Norm, xnew, theta[M],h,theta[M-1],thetaold);
-	 theta[M]=  xnew; 
-
-	 iter=iter+1;     
-     }while((sqrt(epsilon) > toler) && (iter < itermax) );
-
-    if(iter<itermax)
-      cout << "M="<<M<<"  Convergence in "<<iter<<" iterations"<<endl;
-    else
-      {
-	cerr << "NOT CONVERGING in "<<itermax<<" iterations "<<
-	  "||dx||="<<sqrt(epsilon)<<endl;
-	status=1;
-      }
+  // Thomas algorithm
+    vector<double> a(M+1,2.+h*h*act)(M,-1.),b(M,-1.),c(M,-1.),f(M+1,0.);
+    a[0]=1.;
+	a[M]=1.;
+	c[0]=0.;
+	f[0]=(To-Te)/Te;
+    Thomas(a,b,c,f,theta);
 
  // Analitic solution
 
