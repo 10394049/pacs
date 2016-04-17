@@ -1,0 +1,4 @@
+main.o: main.cpp readParameters.hpp parameters.hpp GetPot.hpp norm.hpp
+parameters.o: parameters.cpp parameters.hpp
+readParameters.o: readParameters.cpp GetPot.hpp readParameters.hpp \
+ parameters.hpp

@@ -4,7 +4,8 @@
 #include <tuple>
 #include "readParameters.hpp"
 #include "GetPot.hpp"
-#include "gnuplot-iostream.hpp"// interface with gnuplot
+#include "norm.hpp"
+//#include "gnuplot-iostream.hpp"// interface with gnuplot
 /*!
   @file main.cpp
   @brief Temperature distribution in a 1D bar.
@@ -62,6 +63,8 @@ int main(int argc, char** argv)
   const auto& k=param.k;  // Thermal conductivity
   const auto& hc=param.hc; // Convection coefficient
   const auto&    M=param.M; // Number of grid elements
+  auto ResultsName = param.ResultsName; //Name of the Results file
+  auto Norm= param.Norm; //Choice of the norm
   
   //! Precomputed coefficient for adimensional form of equation
   const auto act=2.*(a1+a2)*hc*L*L/(k*a1*a2);
@@ -75,33 +78,36 @@ int main(int argc, char** argv)
   // Gauss Siedel is initialised with a linear variation
   // of T
   
-  for(unsigned int m=0;m <= M;++m)
+  for(unsigned int m=0;m <= M;++m){
      theta[m]=(1.-m*h)*(To-Te)/Te;
+  }
   
   // Gauss-Seidel
   // epsilon=||x^{k+1}-x^{k}||
   // Stopping criteria epsilon<=toler
   
   int iter=0;
-  double xnew, epsilon;
+  double xnew, epsilon, thetaold;
+  
      do
        { epsilon=0.;
-
+       	 thetaold=theta[0];
 	 // first M-1 row of linear system
          for(int m=1;m < M;m++)
          {   
 	   xnew  = (theta[m-1]+theta[m+1])/(2.+h*h*act);
-	   epsilon += (xnew-theta[m])*(xnew-theta[m]);
+	   epsilon += norm (Norm, xnew, theta[m],h,theta[m-1],thetaold);
+	   thetaold = theta[m];
 	   theta[m] = xnew;
          }
 
 	 //Last row
 	 xnew = theta[M-1]; 
-	 epsilon += (xnew-theta[M])*(xnew-theta[M]);
+	 epsilon += norm (Norm, xnew, theta[M],h,theta[M-1],thetaold);
 	 theta[M]=  xnew; 
 
 	 iter=iter+1;     
-       }while((sqrt(epsilon) > toler) && (iter < itermax) );
+     }while((sqrt(epsilon) > toler) && (iter < itermax) );
 
     if(iter<itermax)
       cout << "M="<<M<<"  Convergence in "<<iter<<" iterations"<<endl;
@@ -118,16 +124,17 @@ int main(int argc, char** argv)
      for(int m=0;m <= M;m++)
        thetaa[m]=Te+(To-Te)*cosh(sqrt(act)*(1-m*h))/cosh(sqrt(act));
 
-     // writing results with format
+     // writing ResultsName with format
      // x_i u_h(x_i) u(x_i) and lauch gnuplot 
 
-     Gnuplot gp;
+
+     //Gnuplot gp;
      std::vector<double> coor(M+1);
      std::vector<double> sol(M+1);
      std::vector<double> exact(M+1);
 
-     cout<<"Result file: result.dat"<<endl;
-     ofstream f("result.dat");
+     cout<<"Result file: "<< ResultsName <<endl;
+     ofstream f(ResultsName);
      for(int m = 0; m<= M; m++)
        {
 	 // \t writes a tab 
@@ -138,9 +145,21 @@ int main(int argc, char** argv)
 	   std::make_tuple(m*h*L,Te*(1.+theta[m]),thetaa[m]);
        }
      // Using temporary files (another nice use of tie)
+       /*
      gp<<"plot"<<gp.file1d(std::tie(coor,sol))<<
        "w lp title 'uh',"<< gp.file1d(std::tie(coor,exact))<<
        "w l title 'uex'"<<std::endl;
+       */
+     f << "Gauss-Seidel with norm " << Norm << " :" <<endl;
+     if(iter<itermax)
+	  f << "M="<<M<<"  Convergence in "<<iter<<" iterations"<<endl;
+	else
+	  {
+	   f << "NOT CONVERGING in "<<itermax<<" iterations "<<
+	   "||dx||="<<sqrt(epsilon)<<endl;
+	  }
+
      f.close();
+
      return status;
 }
